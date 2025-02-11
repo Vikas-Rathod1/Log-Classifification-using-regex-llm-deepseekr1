@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Classifier</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 40px;
+        }
+        #outputTable {
+            width: 80%;
+            margin: 20px auto;
+            border-collapse: collapse;
+        }
+        #outputTable th, #outputTable td {
+            border: 1px solid black;
+            padding: 10px;
+        }
+        #outputTable th {
+            background-color: #f2f2f2;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h2>Log Classifier</h2>
+    <input type="file" id="fileInput" accept=".csv">
+    <button onclick="uploadFile()">Upload and Classify</button>
+    <p id="status"></p>
+    <a id="downloadLink" class="hidden">Download Processed CSV</a>
+    <table id="outputTable" class="hidden">
+        <thead>
+            <tr>
+                <th>Source</th>
+                <th>Log Message</th>
+                <th>Target Label</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+    
+    <script>
+        async function uploadFile() {
+            const fileInput = document.getElementById("fileInput");
+            const status = document.getElementById("status");
+            const downloadLink = document.getElementById("downloadLink");
+            const outputTable = document.getElementById("outputTable");
+            const tableBody = outputTable.querySelector("tbody");
+            
+            if (!fileInput.files.length) {
+                status.textContent = "Please select a CSV file first.";
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+            
+            status.textContent = "Uploading and classifying...";
+            
+            try {
+                const response = await fetch("http://127.0.0.1:8000/classify/", {
+                    method: "POST",
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`Error: ${response.statusText}`);
+                }
+                
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                downloadLink.href = url;
+                downloadLink.download = "classified_output.csv";
+                downloadLink.classList.remove("hidden");
+                downloadLink.textContent = "Download Processed CSV";
+                
+                // Read CSV content and display it in a table
+                const text = await blob.text();
+                const rows = text.split("\n").map(row => row.split(","));
+                tableBody.innerHTML = "";
+                rows.slice(1).forEach(row => {
+                    if (row.length > 1) {
+                        const tr = document.createElement("tr");
+                        row.forEach(cell => {
+                            const td = document.createElement("td");
+                            td.textContent = cell;
+                            tr.appendChild(td);
+                        });
+                        tableBody.appendChild(tr);
+                    }
+                });
+                
+                outputTable.classList.remove("hidden");
+                status.textContent = "Classification complete.";
+            } catch (error) {
+                status.textContent = "Error: " + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
